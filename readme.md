@@ -180,6 +180,20 @@ Aufruf:
 * **Lokal:** [https://192.168.178.115:3000](https://192.168.178.115:3000)
 * **Öffentlich:** [https://DEINE-OEFFENTLICHE-IP:3000](https://DEINE-OEFFENTLICHE-IP:3000) (nur mit Portforwarding)
 
+### Lizenz‑Server starten
+
+Zusätzlich zum Chat‑Server kannst du einen Lizenz‑Server betreiben, der Geräte freigibt oder sperrt.
+Er läuft auf Port **4000** und dient als Weboberfläche zur Verwaltung der Lizenzen.
+
+```bash
+cd ~/server
+node lizens-server.mjs
+```
+
+Aufruf im Browser: `https://DEINE-IP:4000` (z. B. `https://192.168.178.115:4000`).
+Nach dem Start kannst du dort Geräte anlegen, freigeben (z. B. 30/90/180 Tage oder dauerhaft),
+sperren, Gruppen verwalten und Änderungen werden direkt in der SQLite‑Datenbank gespeichert.
+
 ---
 
 ## 3) Dauerbetrieb mit PM2
@@ -190,6 +204,7 @@ Installieren & starten:
 sudo npm install -g pm2
 cd ~/server
 pm2 start server.js --name server
+pm2 start lizens-server.mjs --name license
 pm2 save
 pm2 startup systemd -u $USER --hp /home/$USER
 ```
