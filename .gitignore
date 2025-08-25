@@ -1,0 +1,15 @@
+# Node-Module ignorieren
+node_modules/
+
+# package-lock.json ignorieren
+package-lock.json
+ssl
+ssl-server
+
+# alle cert.txt-Dateien ignorieren (egal wo sie liegen)
+cert.txt
+chat.sqlite
+cert.pem
+chat.sqlite-shm
+chat.sqlite-wal
+license.sqlite

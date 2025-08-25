@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Geräteverwaltung</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-light">
+    <div class="container py-5">
+        <h1 class="mb-4">Geräteverwaltung</h1>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#devicesPane">Geräte</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#groupsPane">Gruppen</button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Geräte -->
+            <div class="tab-pane fade show active" id="devicesPane">
+                <form id="addDeviceForm" class="row g-2 mb-4">
+
+                </form>
+
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Gruppe</th>
+                            <th>Gültig bis</th>
+                            <th>Status</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Gruppen -->
+            <div class="tab-pane fade" id="groupsPane">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Gruppen</h5>
+                    <button class="btn btn-primary" onclick="openGroupDialog()">Neue Gruppe erstellen</button>
+                </div>
+                <div id="groupList" class="row g-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" tabindex="-1" id="groupModal" style="display:none;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="groupForm" onsubmit="createGroup(event)">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Neue Gruppe</h5>
+                        <button type="button" class="btn-close" onclick="closeGroupDialog()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="newGroupName" class="form-control" placeholder="Gruppenname" required />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeGroupDialog()">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Erstellen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" tabindex="-1" id="deviceUnlockModal" style="display:none;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Gerät freigeben</h5>
+                    <button type="button" class="btn-close" onclick="closeDeviceUnlockDialog()"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Gültigkeitsdauer wählen</label>
+                    <select class="form-select" id="deviceUnlockDuration">
+                        <option value="30">30 Tage</option>
+                        <option value="90">90 Tage</option>
+                        <option value="180">180 Tage</option>
+                        <option value="360">360 Tage</option>
+                        <option value="forever">Immer</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeDeviceUnlockDialog()">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmDeviceUnlock()">Freigeben</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" tabindex="-1" id="renameModal" style="display:none;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form onsubmit="confirmRename(event)">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Gerät umbenennen</h5>
+                        <button type="button" class="btn-close" onclick="closeRenameModal()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="renameInput" class="form-control" placeholder="Neuer Gerätename"
+                            required />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeRenameModal()">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script>
+        const host = location.origin;
+        let deviceToUnlock = null;
+        let renameTargetId = null;
+
+        function openGroupDialog() {
+            document.getElementById("groupModal").style.display = "block";
+        }
+
+        function closeGroupDialog() {
+            document.getElementById("groupModal").style.display = "none";
+            document.getElementById("newGroupName").value = "";
+        }
+
+        function openDeviceUnlockDialog(deviceId) {
+            deviceToUnlock = deviceId;
+            document.getElementById("deviceUnlockModal").style.display = "block";
+        }
+
+        function closeDeviceUnlockDialog() {
+            document.getElementById("deviceUnlockModal").style.display = "none";
+            deviceToUnlock = null;
+        }
+
+        async function confirmDeviceUnlock() {
+            const duration = document.getElementById("deviceUnlockDuration").value || "30";
+            await fetch(`${host}/admin/devices/${deviceToUnlock}/unlock`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ duration })
+            });
+            closeDeviceUnlockDialog();
+            loadDevices();
+        }
+
+        function openRenameModal(id, name) {
+            renameTargetId = id;
+            document.getElementById("renameInput").value = name || "";
+            document.getElementById("renameModal").style.display = "block";
+        }
+
+        function closeRenameModal() {
+            document.getElementById("renameModal").style.display = "none";
+            renameTargetId = null;
+        }
+
+        async function confirmRename(e) {
+            e.preventDefault();
+            const name = document.getElementById("renameInput").value.trim();
+            if (!name || !renameTargetId) return;
+            await fetch(`${host}/admin/devices/${renameTargetId}/rename`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name })
+            });
+            closeRenameModal();
+            loadDevices();
+        }
+
+        async function createGroup(e) {
+            e.preventDefault();
+            const name = document.getElementById("newGroupName").value.trim();
+            if (!name) return;
+            await fetch(`${host}/admin/groups`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name })
+            });
+            closeGroupDialog();
+            await Promise.all([loadDevices(), loadGroups()]);
+        }
+
+        async function loadDevices() {
+            const [devRes, groupRes] = await Promise.all([
+                fetch(`${host}/admin/devices`),
+                fetch(`${host}/admin/groups`)
+            ]);
+            const devices = await devRes.json();
+            const groups = (await groupRes.json()).map(g => g.name);
+
+            const tbody = document.getElementById("deviceTableBody");
+            tbody.innerHTML = "";
+
+            devices.forEach(dev => {
+                const tr = document.createElement("tr");
+                const untilStr = dev.allowedUntil >= Number.MAX_SAFE_INTEGER
+                    ? "Immer"
+                    : new Date(dev.allowedUntil).toLocaleDateString();
+
+                tr.innerHTML = `
+          <td class="font-monospace">${dev.id.slice(0, 8)}…</td>
+          <td>${dev.name || "-"}</td>
+          <td>
+            <select class="form-select form-select-sm">
+              <option value="">–</option>
+              ${groups.map(g => `<option value="${g}" ${dev.groupName === g ? "selected" : ""}>${g}</option>`).join("")}
+            </select>
+          </td>
+          <td>${untilStr}</td>
+          <td><span class="badge bg-${dev.blocked ? "danger" : "success"}">${dev.blocked ? "BLOCKED" : "OK"}</span></td>
+          <td>
+            <button class="btn btn-sm btn-${dev.blocked ? "success" : "danger"} me-1 toggle-btn">${dev.blocked ? "Freigeben" : "Sperren"}</button>
+            <button class="btn btn-sm btn-secondary me-1 delete-btn">Löschen</button>
+            <button class="btn btn-sm btn-outline-primary rename-btn">Umbenennen</button>
+          </td>
+        `;
+
+                tr.querySelector("select").addEventListener("change", e => setDeviceGroup(dev.id, e.target.value));
+                tr.querySelector(".toggle-btn").addEventListener("click", () => toggleBlock(dev.id, dev.blocked));
+                tr.querySelector(".delete-btn").addEventListener("click", () => deleteDevice(dev.id));
+                tr.querySelector(".rename-btn").addEventListener("click", () => openRenameModal(dev.id, dev.name || ""));
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function setDeviceGroup(id, groupName) {
+            await fetch(`${host}/admin/devices/${id}/group`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ groupName })
+            });
+            await Promise.all([loadDevices(), loadGroups()]);
+        }
+
+        async function toggleBlock(id, blocked) {
+            if (blocked) openDeviceUnlockDialog(id);
+            else {
+                await fetch(`${host}/admin/devices/${id}/block`, { method: "POST" });
+                loadDevices();
+            }
+        }
+
+        async function deleteDevice(id) {
+            if (!confirm("Gerät wirklich löschen?")) return;
+            await fetch(`${host}/admin/devices/${id}`, { method: "DELETE" });
+            await Promise.all([loadDevices(), loadGroups()]);
+        }
+
+        async function loadGroups() {
+            const res = await fetch(`${host}/admin/groups`);
+            const groups = await res.json();
+            const devRes = await fetch(`${host}/admin/devices`);
+            const devices = await devRes.json();
+            const groupList = document.getElementById("groupList");
+            groupList.innerHTML = "";
+
+            groups.forEach(g => {
+                const notInThis = devices.filter(d => d.groupName !== g.name);
+                const card = document.createElement("div");
+                card.className = "col-md-6";
+                card.innerHTML = `
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">${g.name}</h5>
+                <span class="badge ${g.locked ? "text-bg-danger" : "text-bg-success"}">${g.locked ? "GESPERRT" : "FREI"}</span>
+              </div>
+              <p class="text-muted mb-1">${g.deviceCount} Gerät(e)</p>
+                <p class="text-muted mb-3">
+                Freigegeben bis: <strong>${g.allowedUntil >= Number.MAX_SAFE_INTEGER
+                        ? "dauerhaft"
+                        : new Date(g.allowedUntil).toLocaleDateString()
+                    }</strong>
+                </p>
+
+              <div class="row g-2 align-items-center mb-2">
+                <div class="col-6">
+                  <select class="form-select" id="duration-${g.name}">
+                    <option value="30">30 Tage</option>
+                    <option value="90">90 Tage</option>
+                    <option value="180">180 Tage</option>
+                    <option value="360">360 Tage</option>
+                    <option value="forever">Immer</option>
+                  </select>
+                </div>
+                <div class="col-6 d-grid">
+                  <button class="btn btn-primary" onclick="unlockGroup('${g.name}')">Gruppe freigeben</button>
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-outline-danger" onclick="lockGroup('${g.name}')">Gruppe sperren</button>
+                <button class="btn btn-outline-secondary" onclick="deleteGroup('${g.name}')">Gruppe löschen</button>
+              </div>
+
+              <div class="input-group">
+                <select class="form-select" id="addTo-${g.name}">
+                  <option value="">Gerät auswählen…</option>
+                  ${notInThis.map(d => `<option value="${d.id}">${(d.name || "ohne Namen")} – ${d.id.slice(0, 8)}…</option>`).join("")}
+                </select>
+                <button class="btn btn-outline-primary" onclick="addDeviceToGroup('${g.name}')">Hinzufügen</button>
+              </div>
+            </div>
+          </div>
+        `;
+                groupList.appendChild(card);
+            });
+        }
+
+        async function unlockGroup(name) {
+            const sel = document.getElementById(`duration-${name}`);
+            const duration = sel?.value || "30";
+            await fetch(`${host}/admin/groups/${encodeURIComponent(name)}/unlock`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ duration })
+            });
+            await Promise.all([loadDevices(), loadGroups()]);
+        }
+
+        async function lockGroup(name) {
+            await fetch(`${host}/admin/groups/${encodeURIComponent(name)}/lock`, { method: "POST" });
+            await Promise.all([loadDevices(), loadGroups()]);
+        }
+
+        async function deleteGroup(name) {
+            if (!confirm(`Gruppe "${name}" löschen?`)) return;
+            await fetch(`${host}/admin/groups/${encodeURIComponent(name)}`, { method: "DELETE" });
+            await Promise.all([loadDevices(), loadGroups()]);
+        }
+
+        async function addDeviceToGroup(groupName) {
+            const sel = document.getElementById(`addTo-${groupName}`);
+            const id = sel.value;
+            if (!id) return;
+            await setDeviceGroup(id, groupName);
+        }
+
+        // Start
+        loadDevices();
+        loadGroups();
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
