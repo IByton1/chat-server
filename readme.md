@@ -1,5 +1,7 @@
 # Chat-Server auf dem Raspberry Pi (Pi 5) – README
 
+Einrichtung des Servers für die IOS App: https://github.com/IByton1/AppleChatApp
+
 Diese Anleitung zeigt zwei Wege:
 
 1. **Automatischer Installer** (empfohlen): führt alle Schritte per SSH aus.
